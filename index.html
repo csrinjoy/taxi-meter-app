@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OC/LA Live GPS Taxi Meter & Address Receipt</title>
+    <title>OC/LA Live GPS Taxi Meter & Driver Portal</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome for icons -->
@@ -46,19 +46,35 @@
             </div>
             <div>
                 <h1 id="header-company-name" class="font-bold text-lg tracking-wide text-yellow-400">Orange County Cab Co.</h1>
-                <p class="text-xs text-slate-400">Live GPS Meter</p>
+                <p id="header-driver-subtitle" class="text-xs text-slate-400">Live GPS Meter • Guest Mode (No Logs)</p>
             </div>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Ride Logs Button (Only visible when logged in) -->
+            <button id="btn-ride-history" onclick="openRideHistory()" class="hidden bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 border border-emerald-500/40">
+                <i class="fa-solid fa-clock-rotate-left"></i> Prior Rides (<span id="ride-count-badge">0</span>)
+            </button>
+
             <button onclick="openSettings()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-2 border border-slate-600">
-                <i class="fa-solid fa-gear text-yellow-400"></i> Settings & Rates
+                <i class="fa-solid fa-gear text-yellow-400"></i> Settings
             </button>
             <button onclick="openBranding()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-2 border border-slate-600">
-                <i class="fa-solid fa-building text-yellow-400"></i> Company Info
+                <i class="fa-solid fa-building text-yellow-400"></i> Company
+            </button>
+
+            <!-- Driver Auth Status / Button -->
+            <button id="btn-auth-header" onclick="openAuthModal()" class="bg-yellow-500 hover:bg-yellow-400 text-slate-900 px-3.5 py-1.5 rounded-lg text-sm font-bold transition flex items-center gap-2 shadow">
+                <i class="fa-solid fa-user-circle"></i> <span id="auth-header-label">Driver Sign In</span>
             </button>
         </div>
     </header>
+
+    <!-- Mode Banner -->
+    <div id="guest-mode-banner" class="bg-slate-800/70 border-b border-slate-700/80 px-4 py-2 text-center text-xs text-slate-300 flex items-center justify-center gap-2">
+        <i class="fa-solid fa-shield-halved text-amber-400"></i>
+        <span><strong>Guest Mode:</strong> Trips are not saved to history. <button onclick="openAuthModal()" class="text-yellow-400 underline font-semibold hover:text-yellow-300">Sign in</button> to record & view prior rides.</span>
+    </div>
 
     <!-- Main Content Container -->
     <main class="flex-1 max-w-xl w-full mx-auto p-4 md:p-6 flex flex-col gap-6 justify-center">
@@ -119,6 +135,147 @@
         </div>
 
     </main>
+
+    <!-- Driver Login / Profile Modal -->
+    <div id="auth-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 my-8">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="font-bold text-lg text-yellow-400 flex items-center gap-2">
+                    <i class="fa-solid fa-id-card"></i> Driver Profile & Login
+                </h3>
+                <button onclick="closeAuthModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <!-- Logged Out View -->
+            <div id="auth-logged-out-view" class="space-y-4">
+                <p class="text-xs text-slate-300 leading-relaxed">
+                    Sign in to create your driver profile and automatically save every completed ride, mileage, and fare to your history. Or continue without signing in (no rides logged).
+                </p>
+
+                <!-- Social Login Buttons -->
+                <div class="space-y-2.5">
+                    <button onclick="showProviderForm('google')" class="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center gap-3 shadow">
+                        <i class="fa-brands fa-google text-rose-600 text-base"></i> Continue with Gmail / Google
+                    </button>
+                    <button onclick="showProviderForm('apple')" class="w-full bg-black hover:bg-slate-950 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center gap-3 border border-slate-700 shadow">
+                        <i class="fa-brands fa-apple text-lg"></i> Continue with Apple
+                    </button>
+                    <button onclick="showProviderForm('phone')" class="w-full bg-slate-700 hover:bg-slate-600 text-slate-100 font-bold py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center gap-3 border border-slate-600">
+                        <i class="fa-solid fa-mobile-screen-button text-emerald-400 text-base"></i> Continue with Phone Number
+                    </button>
+                </div>
+
+                <!-- Dynamic Sign-In Details Form -->
+                <div id="provider-signin-box" class="hidden bg-slate-900/90 border border-slate-700 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span id="provider-form-title" class="text-xs font-bold uppercase tracking-wider text-yellow-400">Gmail Sign In</span>
+                        <button onclick="hideProviderForm()" class="text-xs text-slate-400 hover:text-white">Cancel</button>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Driver Full Name</label>
+                        <input type="text" id="auth-driver-name" placeholder="e.g. Alex Rivera" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-yellow-400">
+                    </div>
+                    <div>
+                        <label id="auth-identifier-label" class="block text-xs text-slate-400 mb-1">Gmail Address</label>
+                        <input type="text" id="auth-identifier-input" placeholder="driver@gmail.com" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-yellow-400">
+                    </div>
+                    <div id="phone-otp-section" class="hidden">
+                        <label class="block text-xs text-slate-400 mb-1">Verification Code (Enter any 4 digits)</label>
+                        <input type="text" id="auth-otp-input" maxlength="6" placeholder="1234" class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 tracking-widest font-mono">
+                    </div>
+                    <button onclick="completeDriverSignIn()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold py-2.5 rounded-lg text-xs transition">
+                        Sign In & Activate Ride Logs
+                    </button>
+                </div>
+
+                <div class="pt-2 border-t border-slate-700">
+                    <button onclick="continueWithoutLogin()" class="w-full bg-slate-900 hover:bg-slate-700/70 text-slate-300 font-medium py-2.5 px-4 rounded-xl text-xs transition border border-slate-700">
+                        Continue Without Login (No Ride Logs Stored)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Logged In Profile View -->
+            <div id="auth-logged-in-view" class="hidden space-y-4">
+                <div class="bg-slate-900 border border-slate-700 rounded-xl p-4 flex items-center gap-3.5">
+                    <div id="profile-provider-icon" class="w-12 h-12 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center justify-center text-yellow-400 text-xl shrink-0">
+                        <i class="fa-brands fa-google"></i>
+                    </div>
+                    <div class="overflow-hidden">
+                        <div class="flex items-center gap-2">
+                            <h4 id="profile-display-name" class="font-bold text-base text-white truncate">Alex Rivera</h4>
+                            <span class="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">Logging Active</span>
+                        </div>
+                        <p id="profile-display-id" class="text-xs text-slate-400 truncate">driver@gmail.com</p>
+                        <p id="profile-provider-badge" class="text-[11px] text-slate-500 mt-0.5">Signed in via Gmail</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-center">
+                    <div class="bg-slate-900/70 p-3 rounded-xl border border-slate-700">
+                        <span class="text-[10px] uppercase text-slate-400 block">Saved Trips</span>
+                        <span id="profile-total-trips" class="text-lg font-black text-yellow-400">0</span>
+                    </div>
+                    <div class="bg-slate-900/70 p-3 rounded-xl border border-slate-700">
+                        <span class="text-[10px] uppercase text-slate-400 block">Total Logged Fares</span>
+                        <span id="profile-total-earnings" class="text-lg font-black text-emerald-400">$0.00</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-2.5 pt-2">
+                    <button onclick="closeAuthModal(); openRideHistory();" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-list"></i> View Prior Rides
+                    </button>
+                    <button onclick="signOutDriver()" class="flex-1 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/40 font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-right-from-bracket"></i> Sign Out (Guest Mode)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prior Rides History Modal (Only accessible when logged in) -->
+    <div id="history-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-8 max-h-[85vh] flex flex-col">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3 shrink-0">
+                <div>
+                    <h3 class="font-bold text-lg text-yellow-400 flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Prior Rides History
+                    </h3>
+                    <p id="history-driver-subtitle" class="text-xs text-slate-400">Saved trips for your driver profile</p>
+                </div>
+                <button onclick="closeRideHistory()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <!-- Summary Bar -->
+            <div class="grid grid-cols-3 gap-3 bg-slate-900/90 p-3 rounded-xl border border-slate-700 text-center shrink-0">
+                <div>
+                    <span class="text-[10px] uppercase text-slate-400 block">Total Rides</span>
+                    <span id="hist-stat-count" class="text-base font-bold text-white">0</span>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase text-slate-400 block">Total Distance</span>
+                    <span id="hist-stat-miles" class="text-base font-bold text-emerald-400">0.00 mi</span>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase text-slate-400 block">Total Fares</span>
+                    <span id="hist-stat-revenue" class="text-base font-bold text-yellow-400">$0.00</span>
+                </div>
+            </div>
+
+            <!-- Scrollable List of Rides -->
+            <div id="ride-history-list" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div class="flex justify-between items-center pt-3 border-t border-slate-700 shrink-0">
+                <button onclick="clearDriverHistory()" class="text-xs text-rose-400 hover:underline flex items-center gap-1">
+                    <i class="fa-solid fa-trash"></i> Clear My History
+                </button>
+                <button onclick="closeRideHistory()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-5 py-2 rounded-lg font-bold">Close</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Settings & Rates Modal (Includes Logo Upload) -->
     <div id="settings-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
@@ -225,7 +382,10 @@
                 <div id="receipt-logo" class="w-14 h-14 bg-yellow-500 rounded-full mx-auto flex items-center justify-center text-slate-900 text-2xl font-bold mb-2 overflow-hidden">🚖</div>
                 <h2 id="receipt-company-name" class="font-black text-xl text-slate-900">Orange County Cab Co.</h2>
                 <p id="receipt-driver-info" class="text-xs text-slate-500">Driver ID: Cab #412</p>
-                <p class="text-[11px] text-slate-400 mt-1" id="receipt-datetime">Date: Oct 15, 2026 - 8:49 PM</p>
+                <p class="text-[11px] text-slate-400 mt-1" id="receipt-datetime">Date: Nov 14, 2026 - 10:00 AM</p>
+                <span id="receipt-saved-badge" class="hidden inline-block mt-1.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                    <i class="fa-solid fa-check-circle"></i> Saved to Driver Profile
+                </span>
             </div>
 
             <div class="space-y-2.5 text-xs text-slate-700 border-b border-slate-200 pb-4">
@@ -289,11 +449,18 @@
 
     <!-- Application JavaScript Logic -->
     <script>
+        // Storage Keys
+        const STORAGE_CURRENT_USER = 'oc_taxi_current_driver_v1';
+        const STORAGE_PROFILES_DB = 'oc_taxi_driver_profiles_v1';
+
+        let currentUser = null; // null = Guest Mode (no logs), object = Logged in driver
+        let selectedAuthProvider = 'google';
+
         let rates = {
             base: 4.50,
             perMile: 3.20,
             airportSurcharge: 3.00,
-            hourlyWait: 36.00 // $36.00/hr -> $0.01/sec
+            hourlyWait: 36.00
         };
 
         let branding = {
@@ -305,7 +472,7 @@
         let pendingLogoData = branding.logo;
 
         let tripState = {
-            status: 'STANDBY', // STANDBY, RUNNING, WAITING, PAUSED, ENDED
+            status: 'STANDBY',
             distance: 0.0,
             currentSpeed: 0.0,
             waitSeconds: 0,
@@ -321,10 +488,297 @@
         };
 
         window.addEventListener('DOMContentLoaded', () => {
+            restoreSession();
             autoDetectGPS();
         });
 
-        // Handle Logo File Upload
+        // ==========================================
+        // DRIVER AUTHENTICATION & PROFILE MANAGEMENT
+        // ==========================================
+
+        function getProfilesDB() {
+            try {
+                return JSON.parse(localStorage.getItem(STORAGE_PROFILES_DB)) || {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function saveProfilesDB(db) {
+            localStorage.setItem(STORAGE_PROFILES_DB, JSON.stringify(db));
+        }
+
+        function restoreSession() {
+            try {
+                const savedUserId = localStorage.getItem(STORAGE_CURRENT_USER);
+                if (savedUserId) {
+                    const db = getProfilesDB();
+                    if (db[savedUserId]) {
+                        currentUser = db[savedUserId];
+                    }
+                }
+            } catch (e) {
+                console.error("Session restore failed:", e);
+            }
+            updateAuthUI();
+        }
+
+        function openAuthModal() {
+            hideProviderForm();
+            updateAuthUI();
+            document.getElementById('auth-modal').classList.remove('hidden');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+        }
+
+        function continueWithoutLogin() {
+            currentUser = null;
+            localStorage.removeItem(STORAGE_CURRENT_USER);
+            updateAuthUI();
+            closeAuthModal();
+        }
+
+        function showProviderForm(provider) {
+            selectedAuthProvider = provider;
+            const box = document.getElementById('provider-signin-box');
+            const title = document.getElementById('provider-form-title');
+            const idLabel = document.getElementById('auth-identifier-label');
+            const idInput = document.getElementById('auth-identifier-input');
+            const otpSec = document.getElementById('phone-otp-section');
+
+            box.classList.remove('hidden');
+            idInput.value = '';
+            document.getElementById('auth-otp-input').value = '';
+
+            if (provider === 'google') {
+                title.innerText = 'Sign In with Gmail / Google';
+                idLabel.innerText = 'Gmail Address';
+                idInput.type = 'email';
+                idInput.placeholder = 'driver@gmail.com';
+                otpSec.classList.add('hidden');
+            } else if (provider === 'apple') {
+                title.innerText = 'Sign In with Apple ID';
+                idLabel.innerText = 'Apple ID Email';
+                idInput.type = 'email';
+                idInput.placeholder = 'driver@icloud.com';
+                otpSec.classList.add('hidden');
+            } else if (provider === 'phone') {
+                title.innerText = 'Sign In with Phone Number';
+                idLabel.innerText = 'Mobile Phone Number';
+                idInput.type = 'tel';
+                idInput.placeholder = '(714) 555-0199';
+                otpSec.classList.remove('hidden');
+            }
+        }
+
+        function hideProviderForm() {
+            document.getElementById('provider-signin-box').classList.add('hidden');
+        }
+
+        function completeDriverSignIn() {
+            const nameInput = document.getElementById('auth-driver-name').value.trim();
+            const identifierRaw = document.getElementById('auth-identifier-input').value.trim();
+
+            if (!identifierRaw) {
+                alert('Please enter your email or phone number to sign in.');
+                return;
+            }
+
+            if (selectedAuthProvider === 'phone') {
+                const otp = document.getElementById('auth-otp-input').value.trim();
+                if (otp.length < 4) {
+                    alert('Please enter a 4-digit verification code.');
+                    return;
+                }
+            }
+
+            const normalizedKey = `${selectedAuthProvider}:${identifierRaw.toLowerCase()}`;
+            const db = getProfilesDB();
+
+            if (!db[normalizedKey]) {
+                db[normalizedKey] = {
+                    id: normalizedKey,
+                    provider: selectedAuthProvider,
+                    name: nameInput || identifierRaw.split('@')[0] || 'Driver',
+                    identifier: identifierRaw,
+                    rides: []
+                };
+            } else if (nameInput) {
+                db[normalizedKey].name = nameInput;
+            }
+
+            saveProfilesDB(db);
+            currentUser = db[normalizedKey];
+            localStorage.setItem(STORAGE_CURRENT_USER, normalizedKey);
+
+            // Sync driver info into branding if still default
+            if (branding.driver === "Cab #412 (OC-LA Metro)") {
+                branding.driver = `${currentUser.name} (${currentUser.identifier})`;
+            }
+
+            updateAuthUI();
+            closeAuthModal();
+        }
+
+        function signOutDriver() {
+            currentUser = null;
+            localStorage.removeItem(STORAGE_CURRENT_USER);
+            updateAuthUI();
+            closeAuthModal();
+        }
+
+        function updateAuthUI() {
+            const headerLabel = document.getElementById('auth-header-label');
+            const headerSubtitle = document.getElementById('header-driver-subtitle');
+            const guestBanner = document.getElementById('guest-mode-banner');
+            const historyBtn = document.getElementById('btn-ride-history');
+            const countBadge = document.getElementById('ride-count-badge');
+
+            const loggedOutView = document.getElementById('auth-logged-out-view');
+            const loggedInView = document.getElementById('auth-logged-in-view');
+
+            if (currentUser) {
+                // Refresh from DB
+                const db = getProfilesDB();
+                if (db[currentUser.id]) currentUser = db[currentUser.id];
+
+                const rides = currentUser.rides || [];
+                const totalEarned = rides.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0);
+
+                headerLabel.innerText = currentUser.name;
+                headerSubtitle.innerText = `Driver: ${currentUser.name} • Ride Logging ON`;
+                guestBanner.classList.add('hidden');
+                historyBtn.classList.remove('hidden');
+                countBadge.innerText = rides.length;
+
+                loggedOutView.classList.add('hidden');
+                loggedInView.classList.remove('hidden');
+
+                document.getElementById('profile-display-name').innerText = currentUser.name;
+                document.getElementById('profile-display-id').innerText = currentUser.identifier;
+                document.getElementById('profile-total-trips').innerText = rides.length;
+                document.getElementById('profile-total-earnings').innerText = `$${totalEarned.toFixed(2)}`;
+
+                const iconEl = document.getElementById('profile-provider-icon');
+                const badgeEl = document.getElementById('profile-provider-badge');
+                if (currentUser.provider === 'google') {
+                    iconEl.innerHTML = '<i class="fa-brands fa-google"></i>';
+                    badgeEl.innerText = 'Signed in via Gmail / Google';
+                } else if (currentUser.provider === 'apple') {
+                    iconEl.innerHTML = '<i class="fa-brands fa-apple"></i>';
+                    badgeEl.innerText = 'Signed in via Apple ID';
+                } else {
+                    iconEl.innerHTML = '<i class="fa-solid fa-mobile-screen-button"></i>';
+                    badgeEl.innerText = 'Signed in via Phone Number';
+                }
+            } else {
+                headerLabel.innerText = 'Driver Sign In';
+                headerSubtitle.innerText = 'Live GPS Meter • Guest Mode (No Logs)';
+                guestBanner.classList.remove('hidden');
+                historyBtn.classList.add('hidden');
+
+                loggedOutView.classList.remove('hidden');
+                loggedInView.classList.add('hidden');
+            }
+        }
+
+        // ==========================================
+        // RIDE HISTORY LOGGING (ONLY WHEN LOGGED IN)
+        // ==========================================
+
+        function logRideToDriverProfile(rideRecord) {
+            if (!currentUser) return false; // Guest mode: strictly do NOT log
+
+            const db = getProfilesDB();
+            if (!db[currentUser.id]) {
+                db[currentUser.id] = currentUser;
+            }
+            db[currentUser.id].rides = db[currentUser.id].rides || [];
+            db[currentUser.id].rides.unshift(rideRecord); // Newest first
+            saveProfilesDB(db);
+            currentUser = db[currentUser.id];
+            updateAuthUI();
+            return true;
+        }
+
+        function openRideHistory() {
+            if (!currentUser) {
+                openAuthModal();
+                return;
+            }
+
+            const db = getProfilesDB();
+            currentUser = db[currentUser.id] || currentUser;
+            const rides = currentUser.rides || [];
+
+            document.getElementById('history-driver-subtitle').innerText = `Driver: ${currentUser.name} (${currentUser.identifier})`;
+
+            const totalMiles = rides.reduce((sum, r) => sum + (parseFloat(r.distance) || 0), 0);
+            const totalRevenue = rides.reduce((sum, r) => sum + (parseFloat(r.total) || 0), 0);
+
+            document.getElementById('hist-stat-count').innerText = rides.length;
+            document.getElementById('hist-stat-miles').innerText = `${totalMiles.toFixed(2)} mi`;
+            document.getElementById('hist-stat-revenue').innerText = `$${totalRevenue.toFixed(2)}`;
+
+            const listEl = document.getElementById('ride-history-list');
+            if (rides.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-10 text-slate-400 text-xs space-y-2">
+                        <i class="fa-solid fa-car-side text-3xl text-slate-600"></i>
+                        <p>No rides recorded yet under your profile.</p>
+                        <p class="text-[11px] text-slate-500">Completed trips while signed in will automatically appear here.</p>
+                    </div>
+                `;
+            } else {
+                listEl.innerHTML = rides.map((ride, idx) => `
+                    <div class="bg-slate-900/90 border border-slate-700 rounded-xl p-3.5 text-xs space-y-2">
+                        <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+                            <div>
+                                <span class="font-bold text-yellow-400">Trip #${rides.length - idx}</span>
+                                <span class="text-slate-400 ml-2 text-[11px]">${ride.date}</span>
+                            </div>
+                            <span class="digital-font font-black text-base text-emerald-400">$${parseFloat(ride.total).toFixed(2)}</span>
+                        </div>
+                        <div class="space-y-1 text-slate-300">
+                            <p class="truncate"><span class="text-slate-500 font-semibold">Pickup:</span> ${ride.pickup}</p>
+                            <p class="truncate"><span class="text-slate-500 font-semibold">Drop-off:</span> ${ride.dropoff}</p>
+                        </div>
+                        <div class="flex flex-wrap gap-3 pt-1 text-[11px] text-slate-400">
+                            <span><i class="fa-solid fa-road text-emerald-400 mr-1"></i>${parseFloat(ride.distance).toFixed(2)} mi</span>
+                            <span><i class="fa-solid fa-clock text-sky-400 mr-1"></i>Wait: ${ride.waitTime}</span>
+                            ${ride.airportSurcharge ? '<span class="text-yellow-400"><i class="fa-solid fa-plane-departure mr-1"></i>Airport Fee Included</span>' : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('history-modal').classList.remove('hidden');
+        }
+
+        function closeRideHistory() {
+            document.getElementById('history-modal').classList.add('hidden');
+        }
+
+        function clearDriverHistory() {
+            if (!currentUser) return;
+            if (!confirm('Delete all saved ride logs for your profile?')) return;
+
+            const db = getProfilesDB();
+            if (db[currentUser.id]) {
+                db[currentUser.id].rides = [];
+                saveProfilesDB(db);
+                currentUser = db[currentUser.id];
+            }
+            updateAuthUI();
+            openRideHistory();
+        }
+
+        // ==========================================
+        // LOGO & BRANDING HANDLERS
+        // ==========================================
+
         function handleLogoUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -364,7 +818,10 @@
             document.getElementById('receipt-logo').innerHTML = html;
         }
 
-        // Reverse Geocode helper using OpenStreetMap Nominatim API
+        // ==========================================
+        // GPS & TAXI METER LOGIC
+        // ==========================================
+
         async function reverseGeocode(lat, lon) {
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
@@ -395,9 +852,8 @@
             }
         }
 
-        // Haversine formula for exact distance in miles
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 3958.8; // Radius of Earth in miles
+            const R = 3958.8;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lon2 - lon1) * Math.PI / 180;
             const a = 
@@ -459,7 +915,6 @@
             btnEnd.disabled = false;
             btnEnd.classList.remove('opacity-50', 'cursor-not-allowed');
 
-            // Waiting time ticker
             if (tripState.waitTimer) clearInterval(tripState.waitTimer);
             tripState.waitTimer = setInterval(() => {
                 if (tripState.status === 'WAITING' || tripState.status === 'PAUSED') {
@@ -468,11 +923,10 @@
                 }
             }, 1000);
 
-            // Watch real GPS coordinates
             tripState.watchId = navigator.geolocation.watchPosition(position => {
                 const currentLat = position.coords.latitude;
                 const currentLon = position.coords.longitude;
-                let rawSpeed = position.coords.speed; // meters per second
+                let rawSpeed = position.coords.speed;
 
                 tripState.endLat = currentLat;
                 tripState.endLon = currentLon;
@@ -546,9 +1000,9 @@
                 tripState.endAddressStr = await reverseGeocode(tripState.endLat, tripState.endLon);
             }
 
-            // Populate Receipt
             const now = new Date();
-            document.getElementById('receipt-datetime').innerText = `Date: ${now.toLocaleDateString()} - ${now.toLocaleTimeString()}`;
+            const dateStr = `${now.toLocaleDateString()} - ${now.toLocaleTimeString()}`;
+            document.getElementById('receipt-datetime').innerText = `Date: ${dateStr}`;
             document.getElementById('receipt-start-addr').innerText = tripState.startAddressStr;
             document.getElementById('receipt-end-addr').innerText = tripState.endAddressStr;
 
@@ -565,7 +1019,8 @@
 
             const waitMins = Math.floor(tripState.waitSeconds / 60);
             const waitSecs = tripState.waitSeconds % 60;
-            document.getElementById('r-wait-val').innerText = `${waitMins}:${waitSecs < 10 ? '0' : ''}${waitSecs}`;
+            const waitFormatted = `${waitMins}:${waitSecs < 10 ? '0' : ''}${waitSecs}`;
+            document.getElementById('r-wait-val').innerText = waitFormatted;
             const waitCostPerSec = rates.hourlyWait / 3600;
             document.getElementById('r-wait-cost').innerText = `$${(tripState.waitSeconds * waitCostPerSec).toFixed(2)}`;
 
@@ -579,10 +1034,27 @@
             document.getElementById('receipt-total').innerText = `$${finalTotal.toFixed(2)}`;
             document.getElementById('sms-phone-input').value = '';
 
+            // Save ride ONLY if driver is logged in
+            const wasSaved = logRideToDriverProfile({
+                date: dateStr,
+                pickup: tripState.startAddressStr,
+                dropoff: tripState.endAddressStr,
+                distance: tripState.distance.toFixed(2),
+                waitTime: waitFormatted,
+                airportSurcharge: hasAirport,
+                total: finalTotal.toFixed(2)
+            });
+
+            const savedBadge = document.getElementById('receipt-saved-badge');
+            if (wasSaved) {
+                savedBadge.classList.remove('hidden');
+            } else {
+                savedBadge.classList.add('hidden');
+            }
+
             document.getElementById('receipt-modal').classList.remove('hidden');
         }
 
-        // Send Receipt via Free Native SMS App
         function sendReceiptViaSMS() {
             const rawPhone = document.getElementById('sms-phone-input').value.trim();
             const phone = rawPhone.replace(/[^+\d]/g, '');
