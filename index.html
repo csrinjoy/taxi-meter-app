@@ -120,7 +120,7 @@
 
     </main>
 
-    <!-- Settings & Rates Modal (Now includes Logo Upload) -->
+    <!-- Settings & Rates Modal (Includes Logo Upload) -->
     <div id="settings-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
         <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5 my-8">
             <div class="flex justify-between items-center border-b border-slate-700 pb-3">
@@ -179,7 +179,7 @@
         </div>
     </div>
 
-    <!-- Company Branding Modal (Also supports Logo Upload) -->
+    <!-- Company Branding Modal -->
     <div id="branding-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
             <div class="flex justify-between items-center border-b border-slate-700 pb-3">
@@ -219,8 +219,8 @@
     </div>
 
     <!-- Receipt Modal -->
-    <div id="receipt-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white text-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 relative">
+    <div id="receipt-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white text-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 relative my-6">
             <div class="text-center border-b border-slate-200 pb-4">
                 <div id="receipt-logo" class="w-14 h-14 bg-yellow-500 rounded-full mx-auto flex items-center justify-center text-slate-900 text-2xl font-bold mb-2 overflow-hidden">🚖</div>
                 <h2 id="receipt-company-name" class="font-black text-xl text-slate-900">Orange County Cab Co.</h2>
@@ -258,12 +258,25 @@
                 </div>
             </div>
 
-            <div class="flex justify-between items-center pt-2">
+            <div class="flex justify-between items-center pt-1">
                 <span class="text-sm font-bold uppercase tracking-wider text-slate-700">Total Fare:</span>
                 <span id="receipt-total" class="digital-font text-2xl font-black text-slate-900">$4.50</span>
             </div>
 
-            <div class="flex gap-3 pt-4 no-print">
+            <!-- Free SMS Text Receipt Section (Hidden when printing) -->
+            <div class="bg-slate-100 border border-slate-200 rounded-xl p-3 space-y-2 no-print">
+                <label for="sms-phone-input" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    <i class="fa-solid fa-comment-sms text-emerald-600 mr-1"></i> Text Receipt (Free via Phone SMS)
+                </label>
+                <div class="flex gap-2">
+                    <input type="tel" id="sms-phone-input" placeholder="Passenger phone (optional)" class="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-emerald-500">
+                    <button onclick="sendReceiptViaSMS()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-2 rounded-lg text-xs transition flex items-center gap-1.5 shrink-0">
+                        <i class="fa-solid fa-paper-plane"></i> Send Text
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-2 no-print">
                 <button onclick="window.print()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center gap-2">
                     <i class="fa-solid fa-print"></i> Print Receipt
                 </button>
@@ -285,7 +298,7 @@
 
         let branding = {
             name: "Orange County Cab Co.",
-            logo: "🚖", // Stores emoji or base64 data URL
+            logo: "🚖",
             driver: "Cab #412 (OC-LA Metro)"
         };
 
@@ -564,8 +577,52 @@
 
             const finalTotal = calculateFare();
             document.getElementById('receipt-total').innerText = `$${finalTotal.toFixed(2)}`;
+            document.getElementById('sms-phone-input').value = '';
 
             document.getElementById('receipt-modal').classList.remove('hidden');
+        }
+
+        // Send Receipt via Free Native SMS App
+        function sendReceiptViaSMS() {
+            const rawPhone = document.getElementById('sms-phone-input').value.trim();
+            const phone = rawPhone.replace(/[^+\d]/g, '');
+
+            const dateStr = document.getElementById('receipt-datetime').innerText.replace('Date: ', '');
+            const distCost = (tripState.distance * rates.perMile).toFixed(2);
+            const waitMins = Math.floor(tripState.waitSeconds / 60);
+            const waitSecs = tripState.waitSeconds % 60;
+            const waitTimeStr = `${waitMins}:${waitSecs < 10 ? '0' : ''}${waitSecs}`;
+            const waitCost = (tripState.waitSeconds * (rates.hourlyWait / 3600)).toFixed(2);
+            const hasAirport = document.getElementById('airport-surcharge-toggle').checked;
+            const totalStr = document.getElementById('receipt-total').innerText;
+
+            let lines = [
+                `${branding.name} - Taxi Receipt`,
+                `Driver: ${branding.driver}`,
+                `Date: ${dateStr}`,
+                ``,
+                `Pickup: ${tripState.startAddressStr}`,
+                `Drop-off: ${tripState.endAddressStr}`,
+                ``,
+                `Base Fare: $${rates.base.toFixed(2)}`,
+                `Distance (${tripState.distance.toFixed(2)} mi): $${distCost}`,
+                `Wait Time (${waitTimeStr}): $${waitCost}`
+            ];
+
+            if (hasAirport) {
+                lines.push(`Airport Surcharge: $${rates.airportSurcharge.toFixed(2)}`);
+            }
+
+            lines.push(``);
+            lines.push(`TOTAL FARE: ${totalStr}`);
+            lines.push(`Thank you for riding with us!`);
+
+            const messageBody = encodeURIComponent(lines.join('\n'));
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const separator = isIOS ? '&' : '?';
+            const smsUrl = phone ? `sms:${phone}${separator}body=${messageBody}` : `sms:${separator}body=${messageBody}`;
+
+            window.location.href = smsUrl;
         }
 
         function startNewTripReset() {
